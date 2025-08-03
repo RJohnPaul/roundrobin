@@ -1,0 +1,1888 @@
+<!DOCTYPE html>
+<html class="h-full bg-gray-50" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TranscribeAI - Dashboard</title>    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Prism.js for LaTeX syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism-tomorrow.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-latex.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .latex-output {
+            font-family: 'Courier New', Courier, monospace;
+            background: #2d3748;
+            color: #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body class="h-full" x-data="{    sidebarOpen: false,
+    currentView: 'transcribe',
+    darkMode: false,
+    uploadProgress: 0,
+    isUploading: false,
+    searchTerm: '',
+    notifications: [
+        { id: 1, title: 'Transcription Complete', message: 'quarterly_meeting_q4.mp3 has been processed', time: '2 min ago', type: 'success' },
+        { id: 2, title: 'Processing Started', message: 'client_interview_video.mp4 is being transcribed', time: '15 min ago', type: 'info' },
+        { id: 3, title: 'Storage Warning', message: 'You are approaching your storage limit', time: '1 hour ago', type: 'warning' }
+    ],
+    showNotifications: false,
+    activeSettingsTab: 'general',    recentChats: [
+        { id: 1, name: 'Project Discussion', initials: 'PD', lastMessage: 'Thanks for the transcript...', time: '2h ago' },
+        { id: 2, name: 'Client Meeting', initials: 'CM', lastMessage: 'The accuracy was great!', time: '5h ago' },
+        { id: 3, name: 'Team Standup', initials: 'TS', lastMessage: 'Can you share the notes?', time: '1d ago' },
+        { id: 4, name: 'Interview Session', initials: 'IS', lastMessage: 'Perfect transcription quality', time: '2d ago' }
+    ],    // MoM Generator specific data
+    momTranscript: '',
+    momLatexOutput: '',
+    isMomProcessing: false,
+    momWordCount: 0,
+    // Audio transcription data
+    selectedAudioFile: null,
+    audioFileName: '',
+    isTranscribing: false,
+    transcriptionProgress: 0,
+    transcriptionStatus: 'Ready to transcribe',
+    transcriptionResult: '',    transcriptionSettings: {
+        language: 'auto',
+        includeTimestamps: true,
+        speakerIdentification: false,
+        model: 'tiny'  // Changed to tiny for fastest performance
+    },
+    toggleSidebar() {
+        this.sidebarOpen = !this.sidebarOpen;
+        
+        
+    },
+    setView(view) {
+        this.currentView = view;
+        this.sidebarOpen = false;
+    },
+    toggleDarkMode() {
+        this.darkMode = !this.darkMode;
+        document.documentElement.classList.toggle('dark');
+        localStorage.setItem('darkMode', this.darkMode);
+    },
+    toggleNotifications() {
+        this.showNotifications = !this.showNotifications;
+    },    dismissNotification(id) {
+        this.notifications = this.notifications.filter(n => n.id !== id);
+    },
+    updateMomWordCount() {
+        const text = this.momTranscript.trim();
+        this.momWordCount = text ? text.split(/\s+/).length : 0;
+    },
+    clearMomTranscript() {
+        this.momTranscript = '';
+        this.momWordCount = 0;
+        this.momLatexOutput = '';
+    },
+    loadSampleMomTranscript() {
+        this.momTranscript = `Meeting Start: February 15, 2025, 10:00 AM
+Attendees: John Smith (Chair), Sarah Johnson, Michael Brown, Emily Davis
+
+John: Good morning everyone. Thank you for joining our quarterly planning meeting. Today we'll discuss our Q1 results and plan for Q2.
+
+Sarah: Before we begin, can I suggest we add a discussion about the new marketing campaign to the agenda?
+
+John: Certainly, we'll add that after the budget review. Let's start with the Q1 results. Michael, could you please present the sales figures?
+
+Michael: Sure. Our Q1 sales reached $2.4 million, which is 15% above our target. The new product line contributed significantly, accounting for 30% of total sales. However, we faced some supply chain challenges in March that delayed several large orders.
+
+Emily: That's impressive despite the challenges. For Q2, we should consider increasing our inventory buffer to mitigate similar supply issues.
+
+John: Good point, Emily. Let's put that in our action items. Sarah, what about the marketing performance?
+
+Sarah: Our digital marketing campaigns generated 45% more leads compared to last quarter. The conversion rate improved from 2.8% to 3.5%. For Q2, I propose increasing our social media budget by 20% and launching the new video campaign we discussed last month.
+
+John: That sounds promising. Let's discuss budget implications. Our current Q2 budget is $1.8 million. With Sarah's proposal, we'd need to allocate an additional $50,000 to marketing.
+
+Michael: I think we can reallocate some funds from the R&D budget since the new product development phase is nearly complete.
+
+Emily: I agree with Michael. The R&D team can work with $30,000 less this quarter without affecting the timeline.
+
+John: Great, so we'll increase marketing by $50,000 and reduce R&D by $30,000. We'll need to find the remaining $20,000.
+
+Sarah: The marketing campaign is expected to generate additional revenue of $150,000, so the ROI looks good.
+
+John: Let's approve this change then. Now, let's discuss our Q2 goals. I suggest we aim for a 12% growth in sales and a 5% increase in market share.
+
+Meeting adjourned at 11:45 AM.
+
+Action Items:
+1. Michael to increase inventory buffer for Q2
+2. Sarah to develop detailed plan for enhanced social media campaign
+3. Emily to update Q2 budget allocation
+4. John to schedule follow-up meeting in two weeks`;
+        this.updateMomWordCount();
+    },    async submitMomTranscript() {
+        if (!this.momTranscript.trim()) return;
+        
+        this.isMomProcessing = true;
+        this.momLatexOutput = '';
+        
+        try {
+            const formData = new FormData();
+            formData.append('transcript', this.momTranscript);
+            
+            const response = await fetch('/generate-mom', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.latex_code) {
+                    this.momLatexOutput = data.latex_code;
+                } else if (data.error) {
+                    this.momLatexOutput = `Error: ${data.error}`;
+                }
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to process transcript');
+            }
+        } catch (error) {
+            console.error('Error processing transcript:', error);
+            this.momLatexOutput = `Error processing transcript: ${error.message}. Please try again.`;
+        } finally {
+            this.isMomProcessing = false;
+        }
+    },    copyLatexToClipboard() {
+        navigator.clipboard.writeText(this.momLatexOutput).then(() => {
+            // Add success notification
+            this.notifications.unshift({
+                id: Date.now(),
+                title: 'LaTeX Copied',
+                message: 'LaTeX code has been copied to clipboard',
+                time: 'Just now',
+                type: 'success'
+            });
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            // Add error notification
+            this.notifications.unshift({
+                id: Date.now(),
+                title: 'Copy Failed',
+                message: 'Failed to copy LaTeX code to clipboard',
+                time: 'Just now',
+                type: 'error'
+            });
+        });    },
+    downloadLatexFile() {
+        const blob = new Blob([this.momLatexOutput], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'minutes_of_meeting.tex';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    },
+    // Audio transcription methods
+    handleFileSelection(event) {
+        const file = event.target.files[0];
+        if (file) {
+            this.selectedAudioFile = file;
+            this.audioFileName = file.name;
+            this.transcriptionResult = '';
+        }
+    },
+    
+    async pollTranscriptionProgress(sessionId) {
+        // Poll for progress updates every second
+        const progressInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/transcription-progress/${sessionId}`);
+                if (response.ok) {
+                    const progress = await response.json();
+                    this.transcriptionProgress = progress.progress;
+                    this.transcriptionStatus = progress.status;
+                    
+                    if (progress.completed || progress.error) {
+                        clearInterval(progressInterval);
+                        this.progressInterval = null;
+                        
+                        if (progress.error) {
+                            throw new Error(progress.error);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Progress polling error:', error);
+                clearInterval(progressInterval);
+                this.progressInterval = null;
+            }
+        }, 1000);
+        
+        this.progressInterval = progressInterval;
+    },
+
+    async startTranscription() {
+        if (!this.selectedAudioFile) {
+            alert('Please select an audio file first');
+            return;
+        }
+
+        console.log('Starting transcription for file:', this.selectedAudioFile.name);
+        console.log('Settings:', this.transcriptionSettings);
+
+        this.isTranscribing = true;
+        this.transcriptionProgress = 0;
+        this.transcriptionStatus = 'Preparing transcription...';
+        this.transcriptionResult = '';
+
+        const formData = new FormData();
+        formData.append('audio_file', this.selectedAudioFile);
+        formData.append('language', this.transcriptionSettings.language);
+        formData.append('include_timestamps', this.transcriptionSettings.includeTimestamps.toString());
+        formData.append('speaker_identification', this.transcriptionSettings.speakerIdentification.toString());
+        formData.append('model', this.transcriptionSettings.model);
+
+        console.log('Form data prepared, sending request...');
+
+        try {
+            const response = await fetch('/transcribe-audio', {
+                method: 'POST',
+                body: formData
+            });
+
+            console.log('Response received:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log('Transcription result:', result);
+            
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            
+            // Start real-time progress polling if session ID is provided
+            if (result.session_id) {
+                this.pollTranscriptionProgress(result.session_id);
+            }
+            
+            this.transcriptionResult = result.transcription;
+            console.log('Transcription set successfully:', this.transcriptionResult.length, 'characters');
+            console.log('Result object:', result);
+            console.log('this.transcriptionResult value:', this.transcriptionResult);
+            
+            // Complete progress and cleanup
+            this.transcriptionProgress = 100;
+            this.transcriptionStatus = 'Transcription completed';
+            if (this.progressInterval) {
+                clearInterval(this.progressInterval);
+                this.progressInterval = null;
+            }
+            
+            // Force Alpine.js to update by triggering reactivity
+            this.$nextTick(() => {
+                console.log('After nextTick, transcriptionResult:', this.transcriptionResult);
+            });
+            
+            // Add success notification
+            this.notifications.unshift({
+                id: Date.now(),
+                title: 'Transcription Complete',
+                message: `${this.audioFileName} has been successfully transcribed (${this.transcriptionResult.length} characters)`,
+                time: 'Just now',
+                type: 'success'
+            });
+
+        } catch (error) {
+            console.error('Transcription error:', error);
+            this.notifications.unshift({
+                id: Date.now(),
+                title: 'Transcription Failed',
+                message: error.message || 'An error occurred during transcription',
+                time: 'Just now',
+                type: 'error'
+            });
+        } finally {
+            this.isTranscribing = false;
+            this.transcriptionProgress = 100;
+            
+            // Clean up progress interval
+            if (this.progressInterval) {
+                clearInterval(this.progressInterval);
+                this.progressInterval = null;
+            }
+            
+            console.log('Transcription process completed');
+        }
+    },
+    clearAudioSelection() {
+        this.selectedAudioFile = null;
+        this.audioFileName = '';
+        this.transcriptionResult = '';
+        document.getElementById('file-upload').value = '';
+    },    downloadTranscription() {
+        if (!this.transcriptionResult) return;
+        
+        const blob = new Blob([this.transcriptionResult], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transcription_${this.audioFileName.replace(/\.[^/.]+$/, '')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    },
+    useTranscriptionForMoM() {
+        if (!this.transcriptionResult) return;
+        
+        // Switch to MoM generator view and populate the transcript
+        this.currentView = 'mom-generator';
+        this.momTranscript = this.transcriptionResult;
+        this.updateMomWordCount();
+        
+        // Add success notification
+        this.notifications.unshift({
+            id: Date.now(),
+            title: 'Transcription Loaded',
+            message: 'Transcription has been loaded into MoM Generator',
+            time: 'Just now',
+            type: 'success'
+        });
+    },
+    init() {
+        // Load dark mode preference from localStorage
+        this.darkMode = localStorage.getItem('darkMode') === 'true';
+        if (this.darkMode) {
+            document.documentElement.classList.add('dark');
+        }
+    }
+}"
+x-init="init()">
+
+<!-- Mobile menu overlay -->
+<div x-show="sidebarOpen" x-cloak class="relative z-50 lg:hidden" role="dialog" aria-modal="true">
+    <div x-show="sidebarOpen" 
+         x-transition:enter="transition-opacity ease-linear duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-linear duration-300"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-gray-900/80" 
+         aria-hidden="true"></div>
+
+    <div class="fixed inset-0 flex">
+        <div x-show="sidebarOpen"
+             x-transition:enter="transition ease-in-out duration-300 transform"
+             x-transition:enter-start="-translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in-out duration-300 transform"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="-translate-x-full"
+             class="relative mr-16 flex w-full max-w-xs flex-1">
+            
+            <div class="absolute left-full top-0 flex w-16 justify-center pt-5">
+                <button type="button" @click="toggleSidebar()" class="-m-2.5 p-2.5">
+                    <span class="sr-only">Close sidebar</span>
+                    <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Mobile Sidebar -->
+            <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 ring-1 ring-white/10">
+                <div class="flex h-16 shrink-0 items-center">
+                    <div class="flex items-center">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+                            <i class="fas fa-microphone text-white text-sm"></i>
+                        </div>
+                        <span class="ml-2 text-xl font-bold text-white">TranscribeAI</span>
+                    </div>
+                </div>
+                
+                <nav class="flex flex-1 flex-col">
+                    <ul role="list" class="flex flex-1 flex-col gap-y-7">
+                        <li>
+                            <ul role="list" class="-mx-2 space-y-1">
+                                <li>
+                                    <a href="#" @click.prevent="setView('dashboard')" 
+                                       :class="currentView === 'dashboard' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                                       class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                        <i class="fas fa-chart-line h-6 w-6 shrink-0 flex items-center"></i>
+                                        Dashboard
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" @click.prevent="setView('transcribe')" 
+                                       :class="currentView === 'transcribe' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                                       class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                        <i class="fas fa-microphone h-6 w-6 shrink-0 flex items-center"></i>
+                                        Transcribe
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" @click.prevent="setView('history')" 
+                                       :class="currentView === 'history' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                                       class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                        <i class="fas fa-history h-6 w-6 shrink-0 flex items-center"></i>
+                                        History
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" @click.prevent="setView('analytics')" 
+                                       :class="currentView === 'analytics' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                                       class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                        <i class="fas fa-chart-bar h-6 w-6 shrink-0 flex items-center"></i>
+                                        Analytics
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" @click.prevent="setView('mom-generator')" 
+                                       :class="currentView === 'mom-generator' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                                       class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                        <i class="fas fa-file-alt h-6 w-6 shrink-0 flex items-center"></i>
+                                        MoM Generator
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" @click.prevent="setView('settings')" 
+                                       :class="currentView === 'settings' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                                       class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                        <i class="fas fa-cog h-6 w-6 shrink-0 flex items-center"></i>
+                                        Settings
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <li>
+                            <div class="text-xs font-semibold leading-6 text-gray-400">Previous Chats</div>
+                            <ul role="list" class="-mx-2 mt-2 space-y-1">
+                                <li>
+                                    <a href="#" class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                                        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">M</span>
+                                        <span class="truncate">Meeting #1</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                                        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">I</span>
+                                        <span class="truncate">Interview #2</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                                        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">P</span>
+                                        <span class="truncate">Podcast #3</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <li class="mt-auto">
+                            <a href="#" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                                <i class="fas fa-user h-6 w-6 shrink-0 flex items-center"></i>
+                                Profile
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Desktop sidebar -->
+<div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+    <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 ring-1 ring-white/10">
+        <div class="flex h-16 shrink-0 items-center">
+            <div class="flex items-center">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+                    <i class="fas fa-microphone text-white text-sm"></i>
+                </div>
+                <span class="ml-2 text-xl font-bold text-white">TranscribeAI</span>
+            </div>
+        </div>
+        
+        <nav class="flex flex-1 flex-col">
+            <ul role="list" class="flex flex-1 flex-col gap-y-7">
+                <li>
+                    <ul role="list" class="-mx-2 space-y-1">
+                        <li>
+                            <a href="#" @click.prevent="setView('dashboard')" 
+                               :class="currentView === 'dashboard' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                               class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                <i class="fas fa-chart-line h-6 w-6 shrink-0 flex items-center"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" @click.prevent="setView('transcribe')" 
+                               :class="currentView === 'transcribe' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                               class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                <i class="fas fa-microphone h-6 w-6 shrink-0 flex items-center"></i>
+                                Transcribe
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" @click.prevent="setView('history')" 
+                               :class="currentView === 'history' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                               class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                <i class="fas fa-history h-6 w-6 shrink-0 flex items-center"></i>
+                                History
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" @click.prevent="setView('analytics')" 
+                               :class="currentView === 'analytics' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                               class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                <i class="fas fa-chart-bar h-6 w-6 shrink-0 flex items-center"></i>
+                                Analytics
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" @click.prevent="setView('mom-generator')" 
+                               :class="currentView === 'mom-generator' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                               class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                <i class="fas fa-file-alt h-6 w-6 shrink-0 flex items-center"></i>
+                                MoM Generator
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" @click.prevent="setView('settings')" 
+                               :class="currentView === 'settings' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+                               class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                <i class="fas fa-cog h-6 w-6 shrink-0 flex items-center"></i>
+                                Settings
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                
+                <li>
+                    <div class="text-xs font-semibold leading-6 text-gray-400">Previous Chats</div>
+                    <ul role="list" class="-mx-2 mt-2 space-y-1">
+                        <li>
+                            <a href="#" class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">M</span>
+                                <span class="truncate">Meeting Recording</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">I</span>
+                                <span class="truncate">Interview Session</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">P</span>
+                                <span class="truncate">Podcast Episode</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">L</span>
+                                <span class="truncate">Lecture Notes</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                
+                <li class="mt-auto">
+                    <a href="#" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+                        <i class="fas fa-user h-6 w-6 shrink-0 flex items-center"></i>
+                        Profile
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Main content -->
+<div class="lg:pl-72">
+    <!-- Top header -->
+    <div class="sticky top-0 z-40 lg:mx-auto lg:max-w-7xl lg:px-8">
+        <div class="flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-0 lg:shadow-none">
+            <button type="button" @click="toggleSidebar()" class="-m-2.5 p-2.5 text-gray-700 lg:hidden">
+                <span class="sr-only">Open sidebar</span>
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+            </button>
+
+            <div class="h-6 w-px bg-gray-200 lg:hidden" aria-hidden="true"></div>
+
+            <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+                <form class="relative flex flex-1" action="#" method="GET">
+                    <label for="search-field" class="sr-only">Search</label>
+                    <svg class="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                    </svg>
+                    <input id="search-field" x-model="searchTerm" class="block h-full w-full border-0 py-0 pl-8 pr-0 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm" placeholder="Search transcriptions..." type="search" name="search">
+                </form>
+                
+                <div class="flex items-center gap-x-4 lg:gap-x-6">
+                    <!-- Theme toggle -->
+                    <button type="button" @click="toggleDarkMode()" class="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
+                        <span class="sr-only">Toggle theme</span>
+                        <i :class="darkMode ? 'fas fa-sun' : 'fas fa-moon'" class="h-6 w-6"></i>
+                    </button>
+                      <!-- Notifications -->
+                    <div class="relative">
+                        <button type="button" @click="toggleNotifications()" 
+                                class="relative -m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
+                            <span class="sr-only">View notifications</span>
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                            </svg>
+                            <span x-show="notifications.length > 0" class="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-400 text-xs text-white flex items-center justify-center" x-text="notifications.length"></span>
+                        </button>
+
+                        <!-- Notifications dropdown -->
+                        <div x-show="showNotifications" @click.away="showNotifications = false" x-cloak
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="transform opacity-0 scale-95"
+                             x-transition:enter-end="transform opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="transform opacity-100 scale-100"
+                             x-transition:leave-end="transform opacity-0 scale-95"
+                             class="absolute right-0 z-10 mt-2 w-80 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <div class="px-4 py-2 border-b border-gray-200">
+                                <h3 class="text-sm font-medium text-gray-900">Notifications</h3>
+                            </div>
+                            <div class="max-h-64 overflow-y-auto">
+                                <template x-for="notification in notifications" :key="notification.id">
+                                    <div class="px-4 py-3 hover:bg-gray-50 relative">
+                                        <div class="flex items-start">
+                                            <div class="flex-shrink-0">
+                                                <div :class="{
+                                                    'bg-green-100 text-green-600': notification.type === 'success',
+                                                    'bg-blue-100 text-blue-600': notification.type === 'info',
+                                                    'bg-yellow-100 text-yellow-600': notification.type === 'warning'
+                                                }" class="w-8 h-8 rounded-full flex items-center justify-center">
+                                                    <i :class="{
+                                                        'fas fa-check': notification.type === 'success',
+                                                        'fas fa-info': notification.type === 'info',
+                                                        'fas fa-exclamation': notification.type === 'warning'
+                                                    }" class="text-sm"></i>
+                                                </div>
+                                            </div>
+                                            <div class="ml-3 flex-1">
+                                                <p class="text-sm font-medium text-gray-900" x-text="notification.title"></p>
+                                                <p class="text-sm text-gray-500" x-text="notification.message"></p>
+                                                <p class="text-xs text-gray-400 mt-1" x-text="notification.time"></p>
+                                            </div>
+                                            <button @click="dismissNotification(notification.id)" class="ml-2 text-gray-400 hover:text-gray-600">
+                                                <i class="fas fa-times text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="notifications.length === 0" class="px-4 py-8 text-center text-gray-500 text-sm">
+                                    No new notifications
+                                </div>
+                            </div>
+                            <div x-show="notifications.length > 0" class="px-4 py-2 border-t border-gray-200">
+                                <button class="text-sm text-indigo-600 hover:text-indigo-900">Mark all as read</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200" aria-hidden="true"></div>
+
+                    <!-- Profile dropdown -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button type="button" @click="open = !open" class="-m-1.5 flex items-center p-1.5">
+                            <span class="sr-only">Open user menu</span>
+                            <img class="h-8 w-8 rounded-full bg-gray-50" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="">
+                            <span class="hidden lg:flex lg:items-center">
+                                <span class="ml-4 text-sm font-semibold leading-6 text-gray-900">John Doe</span>
+                                <svg class="ml-2 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                            </span>
+                        </button>
+
+                        <div x-show="open" @click.away="open = false" x-cloak
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="transform opacity-0 scale-95"
+                             x-transition:enter-end="transform opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="transform opacity-100 scale-100"
+                             x-transition:leave-end="transform opacity-0 scale-95"
+                             class="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
+                            <a href="#" class="block px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50">Your profile</a>
+                            <a href="#" class="block px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50">Sign out</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content area -->
+    <main class="py-10">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            
+            <!-- Dashboard View -->
+            <div x-show="currentView === 'dashboard'" x-cloak>
+                <div class="sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold leading-tight tracking-tight text-gray-900">Dashboard Overview</h1>
+                        <p class="mt-2 text-sm text-gray-600">Monitor your transcription activity and manage your files</p>
+                    </div>
+                    <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+                        <button type="button" @click="setView('transcribe')" class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                            <i class="fas fa-plus mr-2"></i>New Transcription
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <dl class="mt-8 grid grid-cols-1 gap-px bg-gray-900/5 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 bg-white px-4 py-6 sm:px-6 xl:px-8">
+                        <dt class="text-sm font-medium leading-6 text-gray-500">Total Transcriptions</dt>
+                        <dd class="text-xs font-medium text-green-600">+12.3%</dd>
+                        <dd class="w-full flex-none text-3xl font-medium leading-10 tracking-tight text-gray-900">247</dd>
+                    </div>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 bg-white px-4 py-6 sm:px-6 xl:px-8">
+                        <dt class="text-sm font-medium leading-6 text-gray-500">Hours Processed</dt>
+                        <dd class="text-xs font-medium text-green-600">+8.1%</dd>
+                        <dd class="w-full flex-none text-3xl font-medium leading-10 tracking-tight text-gray-900">1,243</dd>
+                    </div>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 bg-white px-4 py-6 sm:px-6 xl:px-8">
+                        <dt class="text-sm font-medium leading-6 text-gray-500">Accuracy Rate</dt>
+                        <dd class="text-xs font-medium text-gray-700">+0.2%</dd>
+                        <dd class="w-full flex-none text-3xl font-medium leading-10 tracking-tight text-gray-900">97.8%</dd>
+                    </div>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 bg-white px-4 py-6 sm:px-6 xl:px-8">
+                        <dt class="text-sm font-medium leading-6 text-gray-500">Storage Used</dt>
+                        <dd class="text-xs font-medium text-rose-600">+15.4%</dd>
+                        <dd class="w-full flex-none text-3xl font-medium leading-10 tracking-tight text-gray-900">2.3 GB</dd>
+                    </div>
+                </dl>
+
+                <!-- Recent Transcriptions Table -->
+                <div class="mt-8">
+                    <div class="sm:flex sm:items-center">
+                        <div class="sm:flex-auto">
+                            <h2 class="text-lg font-semibold leading-6 text-gray-900">Recent Transcriptions</h2>
+                            <p class="mt-2 text-sm text-gray-700">A list of your most recent transcription jobs and their status.</p>
+                        </div>
+                    </div>
+                    <div class="mt-6 flow-root">
+                        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                                    <table class="min-w-full divide-y divide-gray-300">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
+                                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Date</th>
+                                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Duration</th>
+                                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Size</th>
+                                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                                                <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                                                    <span class="sr-only">Actions</span>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-200 bg-white">
+                                            <tr>
+                                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                                                    <div class="flex items-center">
+                                                        <i class="fas fa-file-audio text-gray-400 mr-3"></i>
+                                                        Team Meeting Q4
+                                                    </div>
+                                                </td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">Dec 15, 2024</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">45:32</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">23.4 MB</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                                    <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Completed</span>
+                                                </td>
+                                                <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                                                    <button class="text-indigo-600 hover:text-indigo-900 mr-3">
+                                                        <i class="fas fa-download"></i>
+                                                    </button>
+                                                    <button class="text-indigo-600 hover:text-indigo-900">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                                                    <div class="flex items-center">
+                                                        <i class="fas fa-file-audio text-gray-400 mr-3"></i>
+                                                        Client Interview
+                                                    </div>
+                                                </td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">Dec 14, 2024</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">28:15</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">15.2 MB</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                                    <span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">Processing</span>
+                                                </td>
+                                                <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                                                    <button class="text-gray-400" disabled>
+                                                        <i class="fas fa-download"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                                                    <div class="flex items-center">
+                                                        <i class="fas fa-file-audio text-gray-400 mr-3"></i>
+                                                        Podcast Episode 23
+                                                    </div>
+                                                </td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">Dec 13, 2024</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">1:12:45</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">78.9 MB</td>
+                                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                                    <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Completed</span>
+                                                </td>
+                                                <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                                                    <button class="text-indigo-600 hover:text-indigo-900 mr-3">
+                                                        <i class="fas fa-download"></i>
+                                                    </button>
+                                                    <button class="text-indigo-600 hover:text-indigo-900">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transcription Tool View -->
+            <div x-show="currentView === 'transcribe'" x-cloak>
+                <div class="sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold leading-tight tracking-tight text-gray-900">Audio Transcription</h1>
+                        <p class="mt-2 text-sm text-gray-600">Upload your audio files for fast and accurate transcription</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Upload Section -->
+                    <div class="space-y-6">
+                        <div class="bg-white shadow rounded-lg">
+                            <div class="px-4 py-5 sm:p-6">
+                                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Upload Audio File</h3>
+                                
+                                <!-- File Drop Zone -->
+                                <div class="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
+                                    <div class="space-y-1 text-center">
+                                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>                                        <div class="flex text-sm text-gray-600">
+                                            <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                                <span>Upload a file</span>
+                                                <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac" @change="handleFileSelection($event)">
+                                            </label>
+                                            <p class="pl-1">or drag and drop</p>
+                                        </div>
+                                        <p class="text-xs text-gray-500">MP3, WAV, M4A up to 100MB</p>
+                                    </div>
+                                </div>                                <!-- Selected File Display -->
+                                <div x-show="audioFileName" x-cloak class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-file-audio text-blue-600 mr-2"></i>
+                                            <span class="text-sm text-blue-800" x-text="audioFileName"></span>
+                                        </div>
+                                        <button @click="clearAudioSelection()" class="text-blue-600 hover:text-blue-800">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>                                <!-- Upload Progress -->
+                                <div x-show="isTranscribing" x-cloak class="mt-4">
+                                    <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
+                                        <span x-text="transcriptionStatus"></span>
+                                        <span x-text="Math.round(transcriptionProgress) + '%'"></span>
+                                    </div>
+                                    <div class="bg-gray-200 rounded-full h-3">
+                                        <div class="bg-indigo-600 h-3 rounded-full transition-all duration-500 ease-out" 
+                                             :style="'width: ' + transcriptionProgress + '%'"></div>
+                                    </div>
+                                    <div class="mt-2 text-xs text-gray-500 text-center">
+                                        <span x-text="transcriptionSettings.model === 'tiny' ? 'Using fast model for quick processing' : 
+                                                      transcriptionSettings.model === 'base' ? 'Using optimized model for best speed-accuracy balance' : 
+                                                      transcriptionSettings.model === 'small' ? 'Using high-quality model' : 
+                                                      'Using maximum quality model - this may take longer'"></span>
+                                    </div>
+                                </div><!-- Upload Button -->
+                                <div class="mt-6">
+                                    <button type="button" @click="startTranscription()" :disabled="isTranscribing || !selectedAudioFile" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <i class="fas fa-microphone mr-2"></i>
+                                        <span x-text="isTranscribing ? 'Transcribing...' : 'Start Transcription'"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings Card -->
+                        <div class="bg-white shadow rounded-lg">
+                            <div class="px-4 py-5 sm:p-6">
+                                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Transcription Settings</h3>
+                                
+                                <div class="space-y-4">                                    <div>
+                                        <label for="language" class="block text-sm font-medium text-gray-700">Language</label>
+                                        <select id="language" name="language" x-model="transcriptionSettings.language" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                            <option value="auto">Auto-detect</option>
+                                            <option value="en">English (US)</option>
+                                            <option value="es">Spanish</option>
+                                            <option value="fr">French</option>
+                                            <option value="de">German</option>
+                                            <option value="it">Italian</option>
+                                            <option value="pt">Portuguese</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="model" class="block text-sm font-medium text-gray-700">Model Size</label>
+                                        <select id="model" name="model" x-model="transcriptionSettings.model" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                            <option value="tiny">Tiny (fastest, less accurate)</option>
+                                            <option value="base">Base (balanced)</option>
+                                            <option value="small">Small (slower, more accurate)</option>
+                                            <option value="medium">Medium (slow, high accuracy)</option>
+                                        </select>
+                                    </div>
+                                      <div class="flex items-center">
+                                        <input id="timestamps" name="timestamps" type="checkbox" x-model="transcriptionSettings.includeTimestamps" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                        <label for="timestamps" class="ml-2 block text-sm text-gray-900">Include timestamps</label>
+                                    </div>
+                                      <div class="flex items-center">
+                                        <input id="speaker-labels" name="speaker-labels" type="checkbox" x-model="transcriptionSettings.speakerIdentification" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                        <label for="speaker-labels" class="ml-2 block text-sm text-gray-900">Speaker identification</label>
+                                    </div>
+                                    <div x-show="transcriptionSettings.speakerIdentification" x-cloak class="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                        <div class="flex">
+                                            <div class="flex-shrink-0">
+                                                <i class="fas fa-info-circle text-yellow-400"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <p class="text-sm text-yellow-700">
+                                                    Speaker identification requires additional processing time and may take longer to complete.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Section -->
+                    <div class="space-y-6">
+                        <div class="bg-white shadow rounded-lg">
+                            <div class="px-4 py-5 sm:p-6">                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-lg font-medium leading-6 text-gray-900">Transcription Result</h3>
+                                    <div class="flex gap-2">
+                                        <button x-show="transcriptionResult" @click="useTranscriptionForMoM()" type="button" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                            <i class="fas fa-file-alt mr-2"></i>
+                                            Use for MoM
+                                        </button>
+                                        <button x-show="transcriptionResult" @click="downloadTranscription()" type="button" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                            <i class="fas fa-download mr-2"></i>
+                                            Download
+                                        </button>
+                                    </div>
+                                </div>                                <!-- Debug Info (Remove this after testing) -->
+                                <div style="border: 2px solid red; padding: 10px; margin: 10px 0; background: #ffe6e6;">
+                                    <strong>DEBUG INFO:</strong><br>
+                                    transcriptionResult: '<span x-text="transcriptionResult"></span>'<br>
+                                    Length: <span x-text="transcriptionResult.length"></span><br>
+                                    Type: <span x-text="typeof transcriptionResult"></span><br>
+                                    Has result: <span x-text="transcriptionResult ? 'YES' : 'NO'"></span><br>
+                                    Is transcribing: <span x-text="isTranscribing ? 'YES' : 'NO'"></span><br>
+                                    Show result elements: <span x-text="transcriptionResult ? 'SHOULD SHOW' : 'WILL NOT SHOW'"></span><br>
+                                    Show placeholder: <span x-text="!transcriptionResult && !isTranscribing ? 'SHOULD SHOW' : 'WILL NOT SHOW'"></span>
+                                </div>
+
+                                <!-- Test button to manually set result -->
+                                <button onclick="window.testResult = 'Test transcription result'; console.log('Test result set');" style="background: orange; color: white; padding: 5px 10px; margin: 5px;">Set Test Result</button>
+                                <button @click="transcriptionResult = 'Manual test result from Alpine.js'; console.log('Alpine result set:', transcriptionResult);" style="background: blue; color: white; padding: 5px 10px; margin: 5px;">Set Alpine Result</button>
+
+                                <div x-show="!transcriptionResult && !isTranscribing" class="text-center py-12">
+                                    <i class="fas fa-file-alt text-gray-300 text-4xl mb-4"></i>
+                                    <p class="text-gray-500">Your transcription will appear here once processing is complete.</p>
+                                </div>
+                                  
+                                <div x-show="transcriptionResult" x-cloak class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                            <span class="text-sm font-medium text-blue-800">Transcription completed successfully</span>
+                                        </div>
+                                        <div class="text-xs text-blue-600">
+                                            <span x-text="transcriptionResult.split(' ').length + ' words'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div x-show="transcriptionResult" x-cloak class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                                    <div class="prose prose-sm max-w-none">
+                                        <pre x-text="transcriptionResult" class="text-gray-700 leading-relaxed whitespace-pre-wrap font-sans"></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>            <!-- History View -->
+            <div x-show="currentView === 'history'" x-cloak>
+                <div class="sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold leading-tight tracking-tight text-gray-900">Transcription History</h1>
+                        <p class="mt-2 text-sm text-gray-600">View and manage all your previous transcriptions</p>
+                    </div>
+                    <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+                        <button type="button" class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                            <i class="fas fa-download mr-2"></i>Export All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters and Search -->
+                <div class="mt-6 flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1">
+                        <input type="text" placeholder="Search transcriptions..." 
+                               class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                    </div>
+                    <div class="flex gap-2">
+                        <select class="rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                            <option>All Statuses</option>
+                            <option>Completed</option>
+                            <option>Processing</option>
+                            <option>Failed</option>
+                        </select>
+                        <select class="rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                            <option>Last 30 days</option>
+                            <option>Last 7 days</option>
+                            <option>Last 3 months</option>
+                            <option>All time</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="mt-8 flow-root">
+                    <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                        <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                            <table class="min-w-full divide-y divide-gray-300">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">File</th>
+                                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Date</th>
+                                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Duration</th>
+                                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Accuracy</th>
+                                        <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-0">
+                                            <span class="sr-only">Actions</span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    <tr>
+                                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-0">
+                                            <div class="flex items-center">
+                                                <div class="h-10 w-10 flex-shrink-0">
+                                                    <div class="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                        <i class="fas fa-file-audio text-blue-600"></i>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="font-medium text-gray-900">quarterly_meeting_q4.mp3</div>
+                                                    <div class="text-gray-500">Audio file • 15.2 MB</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                            <div>Dec 15, 2023</div>
+                                            <div class="text-gray-400">2:34 PM</div>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">47:23</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                            <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                                                Completed
+                                            </span>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">97.8%</td>
+                                        <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                                            <div class="flex justify-end gap-2">
+                                                <button class="text-indigo-600 hover:text-indigo-900"><i class="fas fa-eye"></i></button>
+                                                <button class="text-indigo-600 hover:text-indigo-900"><i class="fas fa-download"></i></button>
+                                                <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-0">
+                                            <div class="flex items-center">
+                                                <div class="h-10 w-10 flex-shrink-0">
+                                                    <div class="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                                                        <i class="fas fa-video text-purple-600"></i>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="font-medium text-gray-900">client_interview_video.mp4</div>
+                                                    <div class="text-gray-500">Video file • 142.8 MB</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                            <div>Dec 14, 2023</div>
+                                            <div class="text-gray-400">9:15 AM</div>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">1:23:45</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                            <span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
+                                                Processing
+                                            </span>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">-</td>
+                                        <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                                            <div class="flex justify-end gap-2">
+                                                <button class="text-gray-400 cursor-not-allowed"><i class="fas fa-eye"></i></button>
+                                                <button class="text-gray-400 cursor-not-allowed"><i class="fas fa-download"></i></button>
+                                                <button class="text-red-600 hover:text-red-900"><i class="fas fa-times"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-0">
+                                            <div class="flex items-center">
+                                                <div class="h-10 w-10 flex-shrink-0">
+                                                    <div class="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                                                        <i class="fas fa-microphone text-green-600"></i>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="font-medium text-gray-900">voice_memo_project_ideas.wav</div>
+                                                    <div class="text-gray-500">Audio file • 3.7 MB</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                            <div>Dec 13, 2023</div>
+                                            <div class="text-gray-400">4:22 PM</div>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">12:34</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                            <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                                                Completed
+                                            </span>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">96.2%</td>
+                                        <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                                            <div class="flex justify-end gap-2">
+                                                <button class="text-indigo-600 hover:text-indigo-900"><i class="fas fa-eye"></i></button>
+                                                <button class="text-indigo-600 hover:text-indigo-900"><i class="fas fa-download"></i></button>
+                                                <button class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>            <!-- Analytics View -->
+            <div x-show="currentView === 'analytics'" x-cloak>
+                <div class="sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold leading-tight tracking-tight text-gray-900">Analytics</h1>
+                        <p class="mt-2 text-sm text-gray-600">Insights and performance metrics for your transcriptions</p>
+                    </div>
+                    <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+                        <select class="rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                            <option>Last 30 days</option>
+                            <option>Last 7 days</option>
+                            <option>Last 3 months</option>
+                            <option>Last year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Analytics Stats -->
+                <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                                        <i class="fas fa-clock text-white text-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Avg. Processing Time</dt>
+                                        <dd class="text-lg font-medium text-gray-900">3.2 min</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <span class="font-medium text-green-600">-12%</span>
+                                <span class="text-gray-500">from last month</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                                        <i class="fas fa-check text-white text-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
+                                        <dd class="text-lg font-medium text-gray-900">98.7%</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <span class="font-medium text-green-600">+0.3%</span>
+                                <span class="text-gray-500">from last month</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                                        <i class="fas fa-language text-white text-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Languages Detected</dt>
+                                        <dd class="text-lg font-medium text-gray-900">12</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <span class="font-medium text-blue-600">+2</span>
+                                <span class="text-gray-500">new this month</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-orange-500 rounded-md flex items-center justify-center">
+                                        <i class="fas fa-dollar-sign text-white text-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Cost per Hour</dt>
+                                        <dd class="text-lg font-medium text-gray-900">$0.84</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <span class="font-medium text-green-600">-$0.06</span>
+                                <span class="text-gray-500">from last month</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Usage Trends Chart -->
+                    <div class="bg-white shadow rounded-lg p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Usage Trends</h3>
+                        <div class="h-64 bg-gray-50 rounded-md flex items-center justify-center">
+                            <div class="text-center">
+                                <i class="fas fa-chart-line text-gray-300 text-3xl mb-2"></i>
+                                <p class="text-gray-500 text-sm">Chart visualization would be rendered here</p>
+                                <p class="text-gray-400 text-xs">showing transcription volume over time</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Types Distribution -->
+                    <div class="bg-white shadow rounded-lg p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">File Types</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                                    <span class="text-sm text-gray-700">MP3</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-32 bg-gray-200 rounded-full h-2 mr-3">
+                                        <div class="bg-blue-500 h-2 rounded-full" style="width: 65%"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-900 font-medium">65%</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
+                                    <span class="text-sm text-gray-700">MP4</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-32 bg-gray-200 rounded-full h-2 mr-3">
+                                        <div class="bg-purple-500 h-2 rounded-full" style="width: 25%"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-900 font-medium">25%</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                                    <span class="text-sm text-gray-700">WAV</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-32 bg-gray-200 rounded-full h-2 mr-3">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: 10%"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-900 font-medium">10%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="mt-8 bg-white shadow rounded-lg">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Performance Metrics</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-indigo-600">97.8%</div>
+                                <div class="text-sm text-gray-500">Average Accuracy</div>
+                                <div class="mt-2 text-xs text-green-600">+0.2% from last month</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-indigo-600">2.1min</div>
+                                <div class="text-sm text-gray-500">Processing Time per Hour</div>
+                                <div class="mt-2 text-xs text-green-600">-15% faster</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-indigo-600">99.2%</div>
+                                <div class="text-sm text-gray-500">Uptime</div>
+                                <div class="mt-2 text-xs text-green-600">+0.1% from last month</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>            <!-- MoM Generator View -->
+            <div x-show="currentView === 'mom-generator'" x-cloak>
+                <div class="sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold leading-tight tracking-tight text-gray-900">Minutes of Meeting Generator</h1>
+                        <p class="mt-2 text-sm text-gray-600">Convert your meeting transcripts into professional LaTeX Minutes of Meeting documents</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Input Section -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">Meeting Transcript</h3>
+                            <p class="mt-1 text-sm text-gray-500">Paste your meeting transcript below</p>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-4">
+                                <div>
+                                    <textarea 
+                                        x-model="momTranscript" 
+                                        @input="updateMomWordCount()"
+                                        class="w-full h-80 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                                        placeholder="Paste your meeting transcript here...
+
+Example:
+Meeting Start: February 15, 2025, 10:00 AM
+Attendees: John Smith (Chair), Sarah Johnson, Michael Brown
+
+John: Good morning everyone. Today we'll discuss our Q1 results...
+Sarah: Before we begin, can I suggest we add the marketing discussion?
+..."
+                                    ></textarea>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-500" x-text="`${momWordCount} words`"></span>
+                                    <div class="flex space-x-2">
+                                        <button 
+                                            @click="clearMomTranscript()"
+                                            class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                            <i class="fas fa-trash mr-2"></i>
+                                            Clear
+                                        </button>
+                                        <button 
+                                            @click="loadSampleMomTranscript()"
+                                            class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                            <i class="fas fa-file-text mr-2"></i>
+                                            Load Sample
+                                        </button>
+                                    </div>
+                                </div>
+                                <button 
+                                    @click="submitMomTranscript()"
+                                    :disabled="!momTranscript.trim() || isMomProcessing"
+                                    :class="!momTranscript.trim() || isMomProcessing ? 'bg-gray-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'"
+                                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    <span x-show="!isMomProcessing">
+                                        <i class="fas fa-cogs mr-2"></i>
+                                        Generate LaTeX MoM
+                                    </span>
+                                    <span x-show="isMomProcessing" class="flex items-center">
+                                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Processing...
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Output Section -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-lg font-medium text-gray-900">LaTeX Output</h3>
+                                    <p class="mt-1 text-sm text-gray-500">Generated LaTeX code for your Minutes of Meeting</p>
+                                </div>
+                                <div class="flex space-x-2" x-show="momLatexOutput">
+                                    <button 
+                                        @click="copyLatexToClipboard()"
+                                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        <i class="fas fa-copy mr-2"></i>
+                                        Copy
+                                    </button>
+                                    <button 
+                                        @click="downloadLatexFile()"
+                                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        <i class="fas fa-download mr-2"></i>
+                                        Download
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <div x-show="!momLatexOutput && !isMomProcessing" class="text-center py-12">
+                                <i class="fas fa-file-alt text-4xl text-gray-300 mb-4"></i>
+                                <h3 class="text-lg font-medium text-gray-800 mb-2">No output yet</h3>
+                                <p class="text-gray-600">Enter a meeting transcript and click "Generate LaTeX MoM" to see the result</p>
+                            </div>
+                            
+                            <div x-show="isMomProcessing" class="text-center py-12">
+                                <svg class="animate-spin h-10 w-10 text-indigo-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <h3 class="text-lg font-medium text-gray-800 mb-2">Processing...</h3>
+                                <p class="text-gray-600">Analyzing your meeting transcript and generating LaTeX output</p>
+                            </div>
+                              <div x-show="momLatexOutput" class="space-y-4">
+                                <pre class="latex-output text-sm" x-text="momLatexOutput"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tips Section -->
+                <div class="mt-8 bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-blue-800 mb-3">
+                        <i class="fas fa-lightbulb mr-2"></i>
+                        Tips for Better Results
+                    </h3>
+                    <ul class="space-y-2">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-blue-600 mt-1 mr-2 flex-shrink-0"></i>
+                            <span class="text-gray-700">Include speaker names for better organization and structure</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-blue-600 mt-1 mr-2 flex-shrink-0"></i>
+                            <span class="text-gray-700">Add timestamps if available for more accurate minute generation</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-blue-600 mt-1 mr-2 flex-shrink-0"></i>
+                            <span class="text-gray-700">For long meetings, consider breaking into smaller sections</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-blue-600 mt-1 mr-2 flex-shrink-0"></i>
+                            <span class="text-gray-700">Include action items and decisions in the transcript for comprehensive output</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div x-show="currentView === 'settings'" x-cloak>
+                <div class="sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold leading-tight tracking-tight text-gray-900">Settings</h1>
+                        <p class="mt-2 text-sm text-gray-600">Configure your transcription preferences and account settings</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Settings Navigation -->
+                    <div class="lg:col-span-1">
+                        <nav class="space-y-1" x-data="{ activeTab: 'general' }">
+                            <button @click="activeTab = 'general'" 
+                                    :class="activeTab === 'general' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+                                    class="group w-full flex items-center pl-3 pr-2 py-2 text-left text-sm font-medium border-l-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <i class="fas fa-cog mr-3 text-gray-400 group-hover:text-gray-500 flex-shrink-0"></i>
+                                General
+                            </button>
+                            <button @click="activeTab = 'transcription'" 
+                                    :class="activeTab === 'transcription' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+                                    class="group w-full flex items-center pl-3 pr-2 py-2 text-left text-sm font-medium border-l-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <i class="fas fa-microphone mr-3 text-gray-400 group-hover:text-gray-500 flex-shrink-0"></i>
+                                Transcription
+                            </button>
+                            <button @click="activeTab = 'notifications'" 
+                                    :class="activeTab === 'notifications' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+                                    class="group w-full flex items-center pl-3 pr-2 py-2 text-left text-sm font-medium border-l-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <i class="fas fa-bell mr-3 text-gray-400 group-hover:text-gray-500 flex-shrink-0"></i>
+                                Notifications
+                            </button>
+                            <button @click="activeTab = 'privacy'" 
+                                    :class="activeTab === 'privacy' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+                                    class="group w-full flex items-center pl-3 pr-2 py-2 text-left text-sm font-medium border-l-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <i class="fas fa-shield-alt mr-3 text-gray-400 group-hover:text-gray-500 flex-shrink-0"></i>
+                                Privacy & Security
+                            </button>
+                            <button @click="activeTab = 'billing'" 
+                                    :class="activeTab === 'billing' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+                                    class="group w-full flex items-center pl-3 pr-2 py-2 text-left text-sm font-medium border-l-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <i class="fas fa-credit-card mr-3 text-gray-400 group-hover:text-gray-500 flex-shrink-0"></i>
+                                Billing
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- Settings Content -->
+                    <div class="lg:col-span-2">
+                        <!-- General Settings -->
+                        <div x-show="activeTab === 'general'" x-cloak class="bg-white shadow rounded-lg">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900">General Settings</h3>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <div>
+                                    <label for="language" class="block text-sm font-medium text-gray-700 mb-2">Default Language</label>
+                                    <select id="language" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                        <option>English (US)</option>
+                                        <option>English (UK)</option>
+                                        <option>Spanish</option>
+                                        <option>French</option>
+                                        <option>German</option>
+                                        <option>Auto-detect</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label for="timezone" class="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
+                                    <select id="timezone" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                        <option>UTC-8 (Pacific Time)</option>
+                                        <option>UTC-5 (Eastern Time)</option>
+                                        <option>UTC+0 (GMT)</option>
+                                        <option>UTC+1 (Central European Time)</option>
+                                    </select>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Dark Mode</label>
+                                        <p class="text-sm text-gray-500">Use dark theme for the interface</p>
+                                    </div>
+                                    <button type="button" @click="toggleDarkMode()" 
+                                            :class="darkMode ? 'bg-indigo-600' : 'bg-gray-200'"
+                                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span :class="darkMode ? 'translate-x-5' : 'translate-x-0'"
+                                              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Auto-save Transcriptions</label>
+                                        <p class="text-sm text-gray-500">Automatically save transcriptions when completed</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-indigo-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Transcription Settings -->
+                        <div x-show="activeTab === 'transcription'" x-cloak class="bg-white shadow rounded-lg">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900">Transcription Settings</h3>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <div>
+                                    <label for="quality" class="block text-sm font-medium text-gray-700 mb-2">Processing Quality</label>
+                                    <select id="quality" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                        <option>High Quality (Slower)</option>
+                                        <option>Standard Quality</option>
+                                        <option>Fast Processing</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label for="format" class="block text-sm font-medium text-gray-700 mb-2">Output Format</label>
+                                    <select id="format" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                        <option>Plain Text (.txt)</option>
+                                        <option>Rich Text (.rtf)</option>
+                                        <option>Microsoft Word (.docx)</option>
+                                        <option>PDF (.pdf)</option>
+                                        <option>Subtitle (.srt)</option>
+                                    </select>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Speaker Identification</label>
+                                        <p class="text-sm text-gray-500">Identify and label different speakers</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-indigo-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Punctuation Enhancement</label>
+                                        <p class="text-sm text-gray-500">Automatically add punctuation and formatting</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-indigo-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Profanity Filter</label>
+                                        <p class="text-sm text-gray-500">Filter out inappropriate language</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notifications Settings -->
+                        <div x-show="activeTab === 'notifications'" x-cloak class="bg-white shadow rounded-lg">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900">Notification Preferences</h3>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Email Notifications</label>
+                                        <p class="text-sm text-gray-500">Receive email updates about transcription status</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-indigo-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Browser Notifications</label>
+                                        <p class="text-sm text-gray-500">Show desktop notifications when transcription completes</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-indigo-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Weekly Summary</label>
+                                        <p class="text-sm text-gray-500">Receive weekly usage and analytics reports</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Security Alerts</label>
+                                        <p class="text-sm text-gray-500">Notifications about account security events</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-indigo-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Privacy & Security Settings -->
+                        <div x-show="activeTab === 'privacy'" x-cloak class="bg-white shadow rounded-lg">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900">Privacy & Security</h3>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <div>
+                                    <label for="retention" class="block text-sm font-medium text-gray-700 mb-2">Data Retention Period</label>
+                                    <select id="retention" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                        <option>30 days</option>
+                                        <option>90 days</option>
+                                        <option>1 year</option>
+                                        <option>Until I delete</option>
+                                    </select>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Two-Factor Authentication</label>
+                                        <p class="text-sm text-gray-500">Add an extra layer of security to your account</p>
+                                    </div>
+                                    <button class="text-indigo-600 hover:text-indigo-900 text-sm font-medium">Configure</button>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Data Encryption</label>
+                                        <p class="text-sm text-gray-500">Encrypt all uploaded files and transcriptions</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-indigo-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Analytics Tracking</label>
+                                        <p class="text-sm text-gray-500">Allow usage analytics to improve the service</p>
+                                    </div>
+                                    <button type="button" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-indigo-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                                    </button>
+                                </div>
+
+                                <div class="pt-4 border-t border-gray-200">
+                                    <button class="w-full bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                                        Delete Account
+                                    </button>
+                                    <p class="mt-2 text-xs text-gray-500 text-center">This action cannot be undone. All your data will be permanently deleted.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Billing Settings -->
+                        <div x-show="activeTab === 'billing'" x-cloak class="bg-white shadow rounded-lg">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900">Billing & Subscription</h3>
+                            </div>
+                            <div class="p-6 space-y-6">
+                                <div class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-6 text-white">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <h4 class="text-lg font-semibold">Pro Plan</h4>
+                                            <p class="text-indigo-100">1,000 hours/month • Priority support • Advanced features</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-2xl font-bold">$29</div>
+                                            <div class="text-indigo-200">/month</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="text-center p-4 border border-gray-200 rounded-lg">
+                                        <div class="text-2xl font-bold text-gray-900">247</div>
+                                        <div class="text-sm text-gray-500">Hours Used</div>
+                                    </div>
+                                    <div class="text-center p-4 border border-gray-200 rounded-lg">
+                                        <div class="text-2xl font-bold text-gray-900">753</div>
+                                        <div class="text-sm text-gray-500">Hours Remaining</div>
+                                    </div>
+                                    <div class="text-center p-4 border border-gray-200 rounded-lg">
+                                        <div class="text-2xl font-bold text-gray-900">Dec 30</div>
+                                        <div class="text-sm text-gray-500">Next Billing</div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4"> 
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium text-gray-700">Payment Method</span>
+                                        <button class="text-indigo-600 hover:text-indigo-900 text-sm font-medium">Update</button>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-gray-900 rounded flex items-center justify-center">
+                                            <i class="fab fa-cc-visa text-white text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900">•••• •••• •••• 4242</div>
+                                            <div class="text-sm text-gray-500">Expires 12/27</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-4 border-t border-gray-200 space-y-3">
+                                    <button class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                        Upgrade Plan 
+                                    </button>
+                                    <button class="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                        Download Invoice
+                                    </button>
+                                    <button class="w-full text-red-600 hover:text-red-900 text-sm font-medium">
+                                        Cancel Subscription
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+</body>
+</html>
